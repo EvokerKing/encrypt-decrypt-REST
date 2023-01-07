@@ -40,8 +40,49 @@ app.get('/decryptunknown/:data', async function (req, res) {
         res.end(decrypted)
     })
 
-    const encrypted =
-        '250a4a79790ef4aa82b6cb4a95c93480'
+    const encrypted = req.params.data
+    decipher.write(encrypted, 'hex')
+    decipher.end()
+})
+
+app.get('/encrypt/:data/:password', async function (req, res) {
+    scrypt(req.params.password, 'salt', 24, (err, key) => {
+        if (err) throw err
+
+        randomFill(new Uint8Array(16), (err) => {
+            if (err) throw err
+
+            const cipher = createCipheriv('aes-192-cbc', key, '78765929c6cd5b6f')
+
+            let encrypted = ''
+            cipher.setEncoding('hex')
+
+            cipher.on('data', (chunk) => encrypted += chunk)
+            cipher.on('end', () => {
+                res.end(encrypted)
+            })
+
+            cipher.write(req.params.data)
+            cipher.end()
+        })
+    })
+})
+
+app.get('/decrypt/:data/:password', async function (req, res) {
+    const decipher = createDecipheriv('aes-192-cbc', scryptSync(req.params.password, 'salt', 24), '78765929c6cd5b6f')
+
+    let decrypted = ''
+    decipher.on('readable', () => {
+        let chunk
+        while (null !== (chunk = decipher.read())) {
+            decrypted += chunk.toString('utf8')
+        }
+    })
+    decipher.on('end', () => {
+        res.end(decrypted)
+    })
+
+    const encrypted = req.params.data
     decipher.write(encrypted, 'hex')
     decipher.end()
 })
